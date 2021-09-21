@@ -1,0 +1,112 @@
+version: "3.7"
+services:
+
+    service-api:
+        image: rafaellessa/service-api:${DOCKER_IMAGE_TAG:-latest}
+        build:
+            context: back_api
+            dockerfile: Dockerfile
+        working_dir: /var/www/html
+        container_name: service-api
+        networks:
+            - service-network
+        ports:
+            - ${SERVICE_API_PORT:-8001}:80
+        depends_on:
+            - "service-mysql"
+        volumes:
+            - ./back_api/code:/var/www/html
+        environment:
+            # Apache
+            APACHE_DOCUMENT_ROOT: /var/www/html/public
+            APP_ENV: ${APP_ENV}
+
+            # XDebug
+            XDEBUG_CONFIG: remote_host=host.docker.internal remote_autostart=1 remote_handler=dbgp
+
+            BROADCAST_DRIVER: redis
+            CACHE_DRIVER: redis
+            QUEUE_CONNECTION: redis
+            SESSION_DRIVER: redis
+            SESSION_LIFETIME: 120
+            REDIS_CLIENT: predis
+
+            DB_CONNECTION: mysql
+
+            #Mysql
+            DB_HOST: service-mysql
+            DB_PORT: 3306
+            DB_USERNAME: ${MYSQL_DB_USERNAME}
+            DB_PASSWORD: ${MYSQL_DB_PASSWORD}
+            DB_DATABASE: ${MYSQL_DB_DATABASE}
+
+            # Redis
+            REDIS_HOST: service-redis
+            REDIS_PORT: 6379
+            REDIS_CACHE_DB: 0
+            REDIS_DB: 0
+            REDIS_PREFIX: "CacheBtc:"
+            CACHE_PREFIX: "BTC:"
+            REDIS_QUEUE: queue_btc
+
+            #Laravel
+            APP_NAME: Laravel
+            APP_KEY: base64:FSFkzmeTptL+cjwjV/FF+UuDRZOBCXVbZjrTncrVqSI:=
+            APP_URL: http://localhost
+            APP_DEBUG: ${APP_DEBUG}
+
+            JWT_SECRET: ${JWT_SECRET}
+
+        logging:
+            driver: "json-file"
+            options:
+                max-file: "2"
+                max-size: "10m"
+
+        restart: always
+
+    service-mysql:
+        image: mysql:5.7
+        ports:
+            - "3306:3306"
+        networks:
+            - service-network
+        container_name: service-mysql
+        environment:
+            MYSQL_ROOT_PASSWORD: ${MYSQL_DB_PASSWORD}
+            MYSQL_DATABASE: ${MYSQL_DB_DATABASE}
+
+        logging:
+            driver: "json-file"
+            options:
+                max-file: "2"
+                max-size: "10m"
+
+        restart: always
+
+    service-redis:
+        image: redis
+        container_name: service-redis
+        networks:
+            - service-network
+
+        logging:
+            driver: "json-file"
+            options:
+                max-file: "2"
+                max-size: "10m"
+
+        restart: always
+
+volumes:
+    # Mongo DB
+    mongodb:
+        driver: local
+
+    # Rabbit MQ Storage
+    rabbitmq:
+        driver: local
+
+networks:
+    service-network:
+        external: true
